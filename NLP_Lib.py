@@ -9,6 +9,7 @@ def save_fig(plt: matplotlib.pyplot, fig_id: str, tight_layout=True, fig_extensi
     Given a plot object and save specs/info, saves the plt object's current fig
     to the globally defined plots folder path
     '''
+    
     os.makedirs(PATH_TO_PLOTS, exist_ok=True)
     path = os.path.join(PATH_TO_PLOTS, fig_id + "." + fig_extension)
     print("Saving figure", fig_id)
