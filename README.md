@@ -11,6 +11,5 @@
 * `NLP.ipynb` -- This is a notebook for processing data, conducting NLP experiments, producing plots, analyzing the data, etc.
 
 ## General setup before running any code
-1. Ensure the data for this project from `project1.tar.gz` is extracted to the same directory level as the notebooks.
 
 ## Using the NLP code
