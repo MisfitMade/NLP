@@ -6,7 +6,7 @@
 * `conda activate NLP`
 * `pip install tensorflow eyeD3 jupyterlab numpy matplotlib numba librosa pandas scikit-learn`
 
-Now, when you work in the project and/or run its code, do so in this environment/conda space.
+Now, when you work in the project and/or run its code, do so in this NLP environment/conda space.
 
 ## Files
 * `NLP_Lib.py` -- This is a python library of functions we defined to help with cleaning, processing data, etc.
