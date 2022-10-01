@@ -1,6 +1,7 @@
 # CS 567 NLP
 
-## Example of setting up a conda environment for this project (maybe not neccesary, but guarantees you'll be able to use, debug, run the code)
+## Example of setting up a conda environment for this project
+#### Maybe not neccesary, but guarantees you'll be able to use, debug, run the code.
 * `conda create -n NLP python=3.9`
 * `conda activate NLP`
 * `pip install tensorflow eyeD3 jupyterlab numpy matplotlib numba librosa pandas scikit-learn`
