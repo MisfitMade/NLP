@@ -1,7 +1,7 @@
 # CS 567 NLP
 
 ## Example of setting up a conda environment for this project
-#### Maybe not neccesary, but guarantees you'll be able to use, debug, run the code without creating a clashing Python version dependency between Python projects. Have conda installed, then in a conda terminal:
+#### Maybe not neccesary, but guarantees you'll be able to use, debug, run the code + keep you from creating a clashing Python version dependency between Python projects. Have conda installed, then in a conda terminal:
 * `conda create -n NLP python=3.9`
 * `conda activate NLP`
 * `pip install tensorflow eyeD3 jupyterlab numpy matplotlib numba librosa pandas scikit-learn`
