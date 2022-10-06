@@ -3,6 +3,7 @@ import matplotlib.pyplot
 
 PROJECT_ROOT_DIR = "."
 PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots"
+PATH_TO_TRAINING_DATA = f"{PROJECT_ROOT_DIR}/resources/simpsons_dataset-training.tsv"
 
 def save_fig(plt: matplotlib.pyplot, fig_id: str, tight_layout=True, fig_extension="png", resolution=300) -> None:
     '''
