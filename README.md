@@ -4,7 +4,7 @@
 #### Maybe not neccesary, but guarantees you'll be able to use, debug, run the code + keep you from creating a clashing Python version dependency between Python projects. Have conda installed, then in a conda terminal:
 * `conda create -n NLP python=3.9`
 * `conda activate NLP`
-* `pip install tensorflow eyeD3 jupyterlab numpy matplotlib numba librosa pandas scikit-learn`
+* `pip install tensorflow eyeD3 jupyterlab numpy matplotlib numba librosa pandas scikit-learn colormap seaborn`
 
 Now, when you work in the project and/or run its code, do so in this NLP environment/conda space.
 
