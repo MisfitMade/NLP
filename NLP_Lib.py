@@ -17,7 +17,6 @@ SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
 
 # Ensure the existence of certain folders
-pathlib.Path(CHECKPOINT_DIR).mkdir(parents=True, exist_ok=True)
 pathlib.Path(PATH_TO_PLOTS).mkdir(parents=True, exist_ok=True)
 
 def save_fig(
@@ -37,7 +36,11 @@ def save_fig(
     plt.savefig(path, format=fig_extension, dpi=resolution)
 
 
-def make_and_save_inst_per_class_plot(df: pd.DataFrame, plt: matplotlib.pyplot, df_col: str = "class"):
+def make_and_save_inst_per_class_plot(
+    df: pd.DataFrame,
+    plt: matplotlib.pyplot,
+    title: str,
+    df_col: str = "class"):
     '''
     Takes the training data dataframe and plots the number of instances per class,
     saves the figure too.
@@ -46,7 +49,7 @@ def make_and_save_inst_per_class_plot(df: pd.DataFrame, plt: matplotlib.pyplot, 
     pd.Series(df[df_col]).value_counts().plot(
         kind = "bar",
         color=PROJ_COLORS,
-        title=f"Number of Instances in Each {df_col}")
+        title=title)
     plt.xlabel('Characters')
     plt.ylabel('No. of Instances')
     save_fig(plt, f"instances_per_{df_col}", True)
@@ -64,6 +67,6 @@ def train_valid_split(
 
     if report:
         print(
-            f"*****Training*****\n{training}\n*****Validation*****\n{validation}\n")
+            f"*****Training*****\n{training[TEXT_COL]}\n*****Validation*****\n{validation[TEXT_COL]}\n")
 
     return training[TEXT_COL], validation[TEXT_COL], training[CLASS_COL], validation[CLASS_COL]
