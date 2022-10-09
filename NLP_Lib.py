@@ -3,8 +3,14 @@ import matplotlib.pyplot
 import pandas as pd
 import seaborn as sns
 import pathlib
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from keras import backend as keras_backend
+import tensorflow_hub as hub
 from numpy.typing import NDArray
 from typing import Tuple, Callable, List
+from sklearn.metrics import ConfusionMatrixDisplay
 
 PROJECT_ROOT_DIR = "."
 PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots/"
@@ -15,6 +21,7 @@ ELMO_HANDLE = "https://tfhub.dev/google/elmo/2"
 CLASS_COL = "class"
 SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
+EMBEDDING_SIZE = 50
 
 # Ensure the existence of certain folders
 pathlib.Path(PATH_TO_PLOTS).mkdir(parents=True, exist_ok=True)
@@ -69,4 +76,165 @@ def train_valid_split(
         print(
             f"*****Training*****\n{training[TEXT_COL]}\n*****Validation*****\n{validation[TEXT_COL]}\n")
 
-    return training[TEXT_COL], validation[TEXT_COL], training[CLASS_COL], validation[CLASS_COL]
+    return training.filter(items=[TEXT_COL, CLASS_COL]), validation.filter(items=[TEXT_COL, CLASS_COL])
+
+
+def confusion_matrix(instances_validation, model, plt, fig_id) -> None:
+
+    # confusion matrix
+    X, y = [], []
+    for x, label in instances_validation:
+        X.append(x)
+        y.append(label)
+
+    X = np.concatenate(X, axis=0)    
+    y = np.concatenate(y, axis=0)
+
+    predictions = model.predict(X)
+    y_hat = predictions.argmax(axis=-1)
+
+    acc = (y == y_hat).sum() / len(y)
+
+    ConfusionMatrixDisplay.from_predictions(y, y_hat)
+    plt.title(f"Confusion Matrix\nAccuracy: {acc}")
+    save_fig(plt, f"{fig_id}_confusion")
+
+    print("Accuracy:", (y == y_hat).sum() / len(y))
+
+
+
+def plot_loss(plt: matplotlib.pyplot, history, fig_id)-> None:
+
+    # plot loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.ylim((0,4))
+    plt.yticks(np.arange(0, 4.5, step=0.5))
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'], loc='upper left')
+    save_fig(plt, f"{fig_id}_model_loss")
+
+
+def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
+
+    # plot accuracy
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.ylim((0,1))
+    plt.yticks(np.arange(0, 1.1, step=0.1))
+    plt.title('Model Accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'], loc='upper left')
+    save_fig(plt, f"{fig_id}_model_accuracy")
+
+
+def map_class_to_float(classification: str) -> float:
+
+    if classification == "Homer Simpson":
+        return 0
+    elif classification == "Bart Simpson":
+        return 1
+    elif classification == "Lisa Simpson":
+        return 2
+    elif classification == "Marge Simpson":
+        return 3
+    else:
+        return 4
+
+
+def get_X(text_column: pd.Series):
+    
+
+
+# Elmo object taken from 
+# https://github.com/strongio/keras-elmo/blob/master/Elmo%20Keras.ipynb
+class ElmoEmbeddingLayer(keras.layers.Layer):
+    def __init__(self, **kwargs):
+        self.dimensions = 1024
+        self.trainable=True
+        super(ElmoEmbeddingLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.elmo = hub.Module(
+            ELMO_HANDLE,
+            trainable=self.trainable,
+            name="{}_module".format(self.name))
+
+        # self.trainable_weights += keras_backend.tf.trainable_variables(scope="^{}_module/.*".format(self.name))
+        super(ElmoEmbeddingLayer, self).build(input_shape)
+
+    def call(self, x, mask=None):
+        result = self.elmo(
+            keras_backend.squeeze(keras_backend.cast(x, tf.string), axis=1),
+            as_dict=True,
+            signature='default',
+            )['default']
+        return result
+
+    def compute_mask(self, inputs, mask=None):
+        return keras_backend.not_equal(inputs, '--PAD--')
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self.dimensions)
+
+
+# Function to build model
+def build_model(act_fnx: str = "tanh", output_act_fnx: str = "softmax"): 
+    input_text = keras.layers.Input(shape=(1,), dtype="string")
+    embedding = ElmoEmbeddingLayer()(input_text)
+    dense = keras.layers.Dense(256, activation=act_fnx)(embedding)
+    pred = keras.layers.Dense(1, activation=output_act_fnx)(dense)
+
+    model = keras.models.Model(inputs=[input_text], outputs=pred)
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(), # SGD, RMSprop, Adam, Adadelta, Adagrad, Adamax Nadam, Ftrl
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+        metrics=["accuracy"])
+
+    model.summary()
+    
+    return model
+
+
+
+
+# *** SCRATCH ***
+'''
+hub.KerasLayer( # This layer is a word embedding layer
+        language_model_path,
+        trainable=False
+        #dtype=tf.string,
+        #output_key="elmo",
+        #input_shape=(1,),
+        #output_shape=[output_shape_size]
+        ),
+
+# Now lets define our NN, using ELMo as the first layer, the embedding layer
+output_shape_size = 150
+language_model_path = ELMO_HANDLE
+activation_fnx = "tanh"
+
+model = keras.Sequential([
+    ElmoEmbeddingLayer()(keras.layers.Input(dtype='string', input_shape=(1,))),
+    keras.layers.Dense(128, activation=activation_fnx),
+    keras.layers.Dense(5, activation='softmax'),
+])
+
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(), # SGD, RMSprop, Adam, Adadelta, Adagrad, Adamax Nadam, Ftrl
+    loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+    metrics=["accuracy"])
+
+model.summary()
+
+# sharding settings for dev defined GPU work distribution
+# (AutoShardPolicy.DATA or AutoShardPolicy.OFF)
+options = tf.data.Options()
+options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+
+'''
+    
