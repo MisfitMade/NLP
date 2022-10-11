@@ -4,7 +4,6 @@ import pandas as pd
 import seaborn as sns
 import pathlib
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 from keras import backend as keras_backend
 import tensorflow_hub as hub
@@ -12,16 +11,28 @@ from numpy.typing import NDArray
 from typing import Tuple, Callable, List
 from sklearn.metrics import ConfusionMatrixDisplay
 
+
+import tensorflow.compat.v1 as tf
+# disable eager execution to use ELMo model
+tf.disable_eager_execution()
+
 PROJECT_ROOT_DIR = "."
 PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots/"
-PATH_TO_TRAINING_DATA = f"{PROJECT_ROOT_DIR}/resources/simpsons_dataset-training.tsv"
+PATH_TO_DATA = f"{PROJECT_ROOT_DIR}/resources"
+PATH_TO_TRAINING_DATA = f"{PATH_TO_DATA}/simpsons_dataset-training.tsv"
+PATH_TO_PADDED_X = f"{PATH_TO_DATA}/padded_x.npz"
 CHECKPOINT_DIR = f"{PROJECT_ROOT_DIR}/model_checkpoints/"
 PROJ_COLORS = sns.color_palette("magma")
-ELMO_HANDLE = "https://tfhub.dev/google/elmo/2"
+ELMO_HANDLE = "https://tfhub.dev/google/elmo/3" # "https://tfhub.dev/google/elmo/2"
 CLASS_COL = "class"
 SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
 EMBEDDING_SIZE = 50
+PAD_WORD = "--PAD--"
+HOMER_SIMPSON = "Homer Simpson"
+BART_SIMPSON = "Bart Simpson"
+LISA_SIMPSON = "Lisa Simpson"
+MARGE_SIMPSON = "Marge Simpson"
 
 # Ensure the existence of certain folders
 pathlib.Path(PATH_TO_PLOTS).mkdir(parents=True, exist_ok=True)
@@ -133,20 +144,45 @@ def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
 
 def map_class_to_float(classification: str) -> float:
 
-    if classification == "Homer Simpson":
+    if classification == HOMER_SIMPSON:
         return 0
-    elif classification == "Bart Simpson":
+    elif classification == BART_SIMPSON:
         return 1
-    elif classification == "Lisa Simpson":
+    elif classification == LISA_SIMPSON:
         return 2
-    elif classification == "Marge Simpson":
+    elif classification == MARGE_SIMPSON:
         return 3
     else:
         return 4
 
+def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
+    '''
+    Adds --PAD-- to a seqeunce of words if it is not 'longest_str_ln' number
+    of words, until it is 'longest_str_ln' number of words.
+    '''
 
-def get_X(text_column: pd.Series):
+    words_list = str.split() # split on spaces
+    num_words = len(words_list)
+    while num_words < longest_str_ln:
+        str += f" {PAD_WORD}"
     
+    return str
+    
+
+def get_X(text_column: pd.Series, need_fresh_padded_x = False):
+
+    
+    if need_fresh_padded_x:
+        max_str_len = text_column.str.len().max()
+
+        padded_x = text_column.map(
+            lambda s: map_str_to_padded_longest_str(s, max_str_len))
+        # np.savez(PATH_TO_PADDED_X, padded_x)
+
+        return padded_x
+    
+    # else
+    return np.load(PATH_TO_PADDED_X)
 
 
 # Elmo object taken from 
@@ -163,7 +199,7 @@ class ElmoEmbeddingLayer(keras.layers.Layer):
             trainable=self.trainable,
             name="{}_module".format(self.name))
 
-        # self.trainable_weights += keras_backend.tf.trainable_variables(scope="^{}_module/.*".format(self.name))
+        self.trainable_weights += keras_backend.tf.trainable_variables(scope="^{}_module/.*".format(self.name))
         super(ElmoEmbeddingLayer, self).build(input_shape)
 
     def call(self, x, mask=None):
@@ -175,7 +211,7 @@ class ElmoEmbeddingLayer(keras.layers.Layer):
         return result
 
     def compute_mask(self, inputs, mask=None):
-        return keras_backend.not_equal(inputs, '--PAD--')
+        return keras_backend.not_equal(inputs, PAD_WORD)
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.dimensions)
@@ -236,5 +272,11 @@ model.summary()
 options = tf.data.Options()
 options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
 
+
+
+# create an instance of ELMo
+embeddings = language_model(X, signature="default", as_dict=True)["elmo"]
+init = tf.initialize_all_variables()
+sess = tf.Session()
+sess.run(init)
 '''
-    
