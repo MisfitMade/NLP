@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import pathlib
 import numpy as np
+import tensorflow as tf
 from tensorflow import keras
 from keras import backend as keras_backend
 import tensorflow_hub as hub
@@ -12,27 +13,40 @@ from typing import Tuple, Callable, List
 from sklearn.metrics import ConfusionMatrixDisplay
 
 
-import tensorflow.compat.v1 as tf
+# import tensorflow.compat.v1 as tf
 # disable eager execution to use ELMo model
-tf.disable_eager_execution()
+# tf.disable_eager_execution()
 
 PROJECT_ROOT_DIR = "."
+SIMPSONS_TRAINING_TSV = "simpsons_dataset-training.tsv"
 PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots/"
 PATH_TO_DATA = f"{PROJECT_ROOT_DIR}/resources"
-PATH_TO_TRAINING_DATA = f"{PATH_TO_DATA}/simpsons_dataset-training.tsv"
-PATH_TO_PADDED_X = f"{PATH_TO_DATA}/padded_x.npz"
+PATH_TO_TRAINING_DATASET_STRUCT = f"{PATH_TO_DATA}/training"
+PATH_TO_TRAINING_TSV = f"{PATH_TO_DATA}/{SIMPSONS_TRAINING_TSV}"
 CHECKPOINT_DIR = f"{PROJECT_ROOT_DIR}/model_checkpoints/"
 PROJ_COLORS = sns.color_palette("magma")
+
+# 1st element is the electra preprocessor, the 2nd is the electra encoder.
+# For electra encoding, use the electra preprocessor first.
+SMALL_BERT = [
+    "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
+    "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/1",
+]
+
 ELMO_HANDLE = "https://tfhub.dev/google/elmo/3" # "https://tfhub.dev/google/elmo/2"
 CLASS_COL = "class"
 SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
+ID_COL = "id"
 EMBEDDING_SIZE = 50
 PAD_WORD = "--PAD--"
 HOMER_SIMPSON = "Homer Simpson"
 BART_SIMPSON = "Bart Simpson"
 LISA_SIMPSON = "Lisa Simpson"
 MARGE_SIMPSON = "Marge Simpson"
+OTHER = "Other"
+
+CLASSES = [HOMER_SIMPSON, BART_SIMPSON, LISA_SIMPSON, MARGE_SIMPSON, OTHER]
 
 # Ensure the existence of certain folders
 pathlib.Path(PATH_TO_PLOTS).mkdir(parents=True, exist_ok=True)
@@ -218,23 +232,29 @@ class ElmoEmbeddingLayer(keras.layers.Layer):
 
 
 # Function to build model
-def build_model(act_fnx: str = "tanh", output_act_fnx: str = "softmax"): 
-    input_text = keras.layers.Input(shape=(1,), dtype="string")
-    embedding = ElmoEmbeddingLayer()(input_text)
-    dense = keras.layers.Dense(256, activation=act_fnx)(embedding)
-    pred = keras.layers.Dense(1, activation=output_act_fnx)(dense)
+def build_classifier_model(preproc_path: str, encoder_path: str):
+    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+    preprocessing_layer = hub.KerasLayer(preproc_path, name='preprocessing')
+    encoder_inputs = preprocessing_layer(text_input)
+    encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
+    outputs = encoder(encoder_inputs)
+    net = outputs['pooled_output']
+    net = tf.keras.layers.Dense(128, activation="tanh")(net)
+    net = tf.keras.layers.Dropout(0.1)(net)
+    net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
 
-    model = keras.models.Model(inputs=[input_text], outputs=pred)
+    return tf.keras.Model(text_input, net)
 
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(), # SGD, RMSprop, Adam, Adadelta, Adagrad, Adamax Nadam, Ftrl
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-        metrics=["accuracy"])
 
-    model.summary()
-    
-    return model
-
+def make_tsv_into_ds_file_form(training_df: pd.DataFrame):
+    for c in CLASSES:
+        class_c_path = f"{PATH_TO_TRAINING_DATASET_STRUCT}/{c}"
+        pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
+        class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
+        for row in class_c_instances.iterrows():
+            series = row[1]
+            with open(f"{class_c_path}/{series[ID_COL]}.txt", "w") as file:
+                file.write(series[TEXT_COL])
 
 
 
@@ -279,4 +299,33 @@ embeddings = language_model(X, signature="default", as_dict=True)["elmo"]
 init = tf.initialize_all_variables()
 sess = tf.Session()
 sess.run(init)
+
+
+CREATE A DATA SET OUT OF OUR TSV ?
+dataset = tf.keras.utils.get_file(
+    SIMPSONS_TRAINING_TSV,
+    PATH_TO_TRAINING_DATA,
+    cache_dir=PATH_TO_DATA,
+    cache_subdir='')
+dataset_dir = os.path.join(os.path.dirname(dataset), 'simpsons')
+train_dir = os.path.join(dataset_dir, 'train')
+
+
+BUILD EMBEDDER MANUALLY
+max_seq_len = training_df[TEXT_COL].str.len().max()
+
+preprocessor = hub.KerasLayer(SMALL_BERT[0])
+
+encoder_inputs = preprocessor(training_df[TEXT_COL])
+encoder = hub.KerasLayer(SMALL_BERT[1], trainable=True)
+
+BUILD DATASETS MANUALLY
+embedded = encoder_outputs["default"]
+Y = tf.keras.utils.to_categorical(classes_encoding)
+eighty_percent = int(embedded.shape[0] * 0.8)
+classes_encoding = training_df[CLASS_COL].map(map_class_to_float)
+X_train = embedded[0:eighty_percent]
+Y_train = tf.keras.utils.to_categorical(classes_encoding[0:eighty_percent])
+X_validate = embedded[eighty_percent:]
+Y_validate = tf.keras.utils.to_categorical(classes_encoding[eighty_percent:])
 '''
