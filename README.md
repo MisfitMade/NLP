@@ -4,9 +4,13 @@
 #### Maybe not neccesary, but guarantees you'll be able to use, debug, run the code + keep you from creating a clashing Python version dependency between Python projects. Have conda installed, then in a conda terminal:
 * `conda create -n NLP python=3.10`
 * `conda activate NLP`
-* `pip install "tensorflow-text==2.8.*" datasets "tf-models-official==2.7.0" eyeD3 jupyterlab numpy matplotlib pandas scikit-learn colormap seaborn`
+* `pip install tensorflow tensorflow-text datasets tf-models-official eyeD3 jupyterlab numpy matplotlib pandas scikit-learn colormap seaborn`
 
 Now, when you work in the project and/or run its code, do so in this NLP environment/conda space.
+
+If you are attempting to train a tensorflow NN and are getting a warning about the work not being
+mapped to the GPU because the library `libcudnn8` is not installed, then you can install it via conda:
+* `conda install -c anaconda cudnn`
 
 ## Files
 * `NLP_Lib.py` -- This is a python library of functions we defined to help with cleaning, processing data, etc.
