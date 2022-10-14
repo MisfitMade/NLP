@@ -19,11 +19,11 @@ from sklearn.metrics import ConfusionMatrixDisplay
 
 PROJECT_ROOT_DIR = "."
 SIMPSONS_TRAINING_TSV = "simpsons_dataset-training.tsv"
-PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots/"
+PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots"
 PATH_TO_DATA = f"{PROJECT_ROOT_DIR}/resources"
 PATH_TO_TRAINING_DATASET_STRUCT = f"{PATH_TO_DATA}/training"
 PATH_TO_TRAINING_TSV = f"{PATH_TO_DATA}/{SIMPSONS_TRAINING_TSV}"
-CHECKPOINT_DIR = f"{PROJECT_ROOT_DIR}/model_checkpoints/"
+CHECKPOINT_DIR = f"{PROJECT_ROOT_DIR}/model_checkpoints"
 PROJ_COLORS = sns.color_palette("magma")
 
 # 1st element is the electra preprocessor, the 2nd is the electra encoder.
@@ -139,7 +139,7 @@ def plot_loss(plt: matplotlib.pyplot, history, fig_id)-> None:
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend(['Training', 'Validation'], loc='upper left')
-    save_fig(plt, f"{fig_id}_model_loss")
+    save_fig(plt, f"{PATH_TO_PLOTS}/{fig_id}_model_loss")
 
 
 def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
@@ -153,7 +153,7 @@ def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(['Training', 'Validation'], loc='upper left')
-    save_fig(plt, f"{fig_id}_model_accuracy")
+    save_fig(plt, f"{PATH_TO_PLOTS}/{fig_id}_model_accuracy")
 
 
 def map_class_to_float(classification: str) -> float:
