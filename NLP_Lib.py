@@ -193,6 +193,8 @@ def translate_df_to_and_back(
     dataframe's text column to, does the translation to that language, then translates it back
     to english. The translations can take a long time, so a fraction value is taken as well and
     a random sample of that size is taken from each class translated.
+    fraction_of_each_class_to_translate = 0.001 does not take forever and takes about 100
+    random ones spread about the classes and translates them.
     '''
 
     translator = Translator()
@@ -284,12 +286,12 @@ def make_df_into_ds_file_form(
     # dataset structure
     assert "\\" not in unique_id and "/" not in unique_id
     for c in classes:
-        class_c_path = f"{path_to_file_struct_root}/{unique_id}{c}"
+        class_c_path = f"{path_to_file_struct_root}/{c}"
         pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
         class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
         for row in class_c_instances.iterrows():
             series = row[1]
-            with open(f"{class_c_path}/{series[ID_COL]}.txt", "w") as file:
+            with open(f"{class_c_path}/{unique_id}{series[ID_COL]}.txt", "w") as file:
                 file.write(series[TEXT_COL])
 
 

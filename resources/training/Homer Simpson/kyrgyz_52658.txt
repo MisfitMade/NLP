@@ -1,0 +1,1 @@
+When I press this button, the door opens like magic.
