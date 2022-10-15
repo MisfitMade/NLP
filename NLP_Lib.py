@@ -11,6 +11,7 @@ import tensorflow_hub as hub
 from numpy.typing import NDArray
 from typing import Tuple, Callable, List
 from sklearn.metrics import ConfusionMatrixDisplay
+from googletrans import Translator
 
 
 # import tensorflow.compat.v1 as tf
@@ -182,22 +183,34 @@ def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
     
     return str
     
+def translate_df_to_and_back(
+    dest_lang: str,
+    training_df: pd.DataFrame,
+    fraction_of_each_class_to_translate: float,
+    classes: list) -> pd.DataFrame:
+    '''
+    Takes a dataframe in the form of the training data .tsv, a language to translate that
+    dataframe's text column to, does the translation to that language, then translates it back
+    to english. The translations can take a long time, so a fraction value is taken as well and
+    a random sample of that size is taken from each class translated.
+    '''
 
-def get_X(text_column: pd.Series, need_fresh_padded_x = False):
+    translator = Translator()
+    sample_of_translated = pd.DataFrame(columns=training_df.columns)
+    for c in classes:
+        class_c_instances = training_df[training_df[CLASS_COL] == c].sample(frac=fraction_of_each_class_to_translate)    
+        # translate from english to dest_lang, then translate back, from dest_lang to english
+        class_c_instances[TEXT_COL] = class_c_instances[TEXT_COL].map(lambda x: translate_str_to_and_back(translator, x, dest_lang))
+        sample_of_translated = pd.concat([sample_of_translated, class_c_instances])
+   
+    return sample_of_translated
 
-    
-    if need_fresh_padded_x:
-        max_str_len = text_column.str.len().max()
+def translate_str_to_and_back(translator, text_to_translate: str, dest_lang: str) -> str:
 
-        padded_x = text_column.map(
-            lambda s: map_str_to_padded_longest_str(s, max_str_len))
-        # np.savez(PATH_TO_PADDED_X, padded_x)
-
-        return padded_x
-    
-    # else
-    return np.load(PATH_TO_PADDED_X)
-
+    return translator.translate(
+        translator.translate(text_to_translate, dest=dest_lang, src="en").text,
+        dest="en",
+        src=dest_lang).text
 
 # Elmo object taken from 
 # https://github.com/strongio/keras-elmo/blob/master/Elmo%20Keras.ipynb
@@ -246,9 +259,32 @@ def build_classifier_model(preproc_path: str, encoder_path: str):
     return tf.keras.Model(text_input, net)
 
 
-def make_tsv_into_ds_file_form(training_df: pd.DataFrame):
-    for c in CLASSES:
-        class_c_path = f"{PATH_TO_TRAINING_DATASET_STRUCT}/{c}"
+def make_df_into_ds_file_form(
+    training_df: pd.DataFrame,
+    path_to_file_struct_root: str,
+    classes: list,
+    unique_id: str = ""):
+    '''
+    Takes a dataframe representing a .tsv in the form of the training data .tsv,
+    a path to root folder for a file/folder data set structure to be made at,
+    a list of target classes to turn to folders and add the corresponding instances
+    into, and a unique_id to prefix file names (which are coded to just be the row ids
+    of the given dataframe, not the row index, but the row id) so that the same file names
+    can be used to save multiple instances, but with slightly different prefixes. For
+    instance, training instance 112, being a Bart class, the text being "Eat my shorts",
+    can be saved as twice as path_to_file_struct_root/Bart/es112.txt and
+    path_to_file_struct_root/Bart/en112.txt, where the "es" one is "Eat my shorts"
+    translated to spanish, then back to english, and saved to the .txt as what ever the
+    translation to and back becomes, and the "en" one is just the original english version,
+    "Eat my shorts" saved to a .txt.
+    enlis
+    '''
+
+    # if unique_id has any / or \ in it, it will create new folders and mess up the
+    # dataset structure
+    assert "\\" not in unique_id and "/" not in unique_id
+    for c in classes:
+        class_c_path = f"{path_to_file_struct_root}/{unique_id}{c}"
         pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
         class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
         for row in class_c_instances.iterrows():
