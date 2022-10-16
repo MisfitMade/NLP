@@ -4,6 +4,7 @@ import pandas as pd
 import seaborn as sns
 import pathlib
 import numpy as np
+import json
 import tensorflow as tf
 from tensorflow import keras
 from keras import backend as keras_backend
@@ -19,22 +20,8 @@ from googletrans import Translator, constants
 # tf.disable_eager_execution()
 
 PROJECT_ROOT_DIR = "."
-SIMPSONS_TRAINING_TSV = "simpsons_dataset-training.tsv"
-PATH_TO_PLOTS = f"{PROJECT_ROOT_DIR}/plots"
-PATH_TO_DATA = f"{PROJECT_ROOT_DIR}/resources"
-PATH_TO_TRAINING_DATASET_STRUCT = f"{PATH_TO_DATA}/training"
-PATH_TO_TRAINING_TSV = f"{PATH_TO_DATA}/{SIMPSONS_TRAINING_TSV}"
-CHECKPOINT_DIR = f"{PROJECT_ROOT_DIR}/model_checkpoints"
+PLOTS_DIR = "plots"
 PROJ_COLORS = sns.color_palette("magma")
-
-# 1st element is the electra preprocessor, the 2nd is the electra encoder.
-# For electra encoding, use the electra preprocessor first.
-SMALL_BERT = [
-    "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
-    "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/1",
-]
-
-ELMO_HANDLE = "https://tfhub.dev/google/elmo/3" # "https://tfhub.dev/google/elmo/2"
 CLASS_COL = "class"
 SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
@@ -49,12 +36,23 @@ OTHER = "Other"
 
 CLASSES = [HOMER_SIMPSON, BART_SIMPSON, LISA_SIMPSON, MARGE_SIMPSON, OTHER]
 
-# Ensure the existence of certain folders
-pathlib.Path(PATH_TO_PLOTS).mkdir(parents=True, exist_ok=True)
+ELMO_HANDLE = "https://tfhub.dev/google/elmo/3" # "https://tfhub.dev/google/elmo/2"
+# 1st element is the bert preprocessor, the 2nd is the bert encoder.
+# For bert encoding, use the electra preprocessor first.
+SMALL_BERT = [
+    "https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3",
+    "https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/1",
+]
+
+PATH_TO_GENERIC_PLOTS = os.path.join(PROJECT_ROOT_DIR, PLOTS_DIR)
+PATH_TO_DATA = os.path.join(PROJECT_ROOT_DIR, "resources")
+PATH_TO_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
+PATH_TO_TRAINING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-training.tsv")
+CHECKPOINT_DIR = os.path.join(PROJECT_ROOT_DIR, "model_checkpoints")
 
 def save_fig(
     plt: matplotlib.pyplot,
-    fig_id: str,
+    path_to_fig_and_fig_id: str,
     tight_layout=True,
     fig_extension="png",
     resolution=300) -> None:
@@ -63,7 +61,7 @@ def save_fig(
     to the globally defined plots folder path
     '''
     
-    path = os.path.join(PATH_TO_PLOTS, f"{fig_id}.{fig_extension}")
+    path = f"{path_to_fig_and_fig_id}.{fig_extension}"
     if tight_layout:
         plt.tight_layout()
     plt.savefig(path, format=fig_extension, dpi=resolution)
@@ -105,7 +103,7 @@ def train_valid_split(
     return training.filter(items=[TEXT_COL, CLASS_COL]), validation.filter(items=[TEXT_COL, CLASS_COL])
 
 
-def confusion_matrix(plt, instances_validation, model, identifying_path) -> None:
+def confusion_matrix(plt, instances_validation, model, path_to_folder) -> None:
 
     # confusion matrix
     X, y = [], []
@@ -126,17 +124,13 @@ def confusion_matrix(plt, instances_validation, model, identifying_path) -> None
 
 
     # ensure that the path to save it to exists
-    pathlib.Path(
-        os.path.join(
-            PATH_TO_PLOTS,
-            identifying_path)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(identifying_path, "confusion"))
+    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path_to_folder, "confusion"))
 
     print("Accuracy:", (y == y_hat).sum() / len(y))
 
 
-
-def plot_loss(plt: matplotlib.pyplot, history, identifying_path)-> None:
+def plot_loss(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
     # plot loss
     plt.plot(history.history['loss'])
@@ -149,14 +143,11 @@ def plot_loss(plt: matplotlib.pyplot, history, identifying_path)-> None:
     plt.legend(['Training', 'Validation'], loc='upper left')
 
     # ensure that the path to save it to exists
-    pathlib.Path(
-        os.path.join(
-            PATH_TO_PLOTS,
-            identifying_path)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(identifying_path, "model_loss"))
+    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path_to_folder, "model_loss"))
 
 
-def plot_accuracy(plt: matplotlib.pyplot, history, identifying_path)-> None:
+def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
     # plot accuracy
     plt.plot(history.history['accuracy'])
@@ -169,11 +160,33 @@ def plot_accuracy(plt: matplotlib.pyplot, history, identifying_path)-> None:
     plt.legend(['Training', 'Validation'], loc='upper left')
 
     # ensure that the path to save it to exists
-    pathlib.Path(
-        os.path.join(
-            PATH_TO_PLOTS,
-            identifying_path)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(identifying_path, "model_accuracy"))
+    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path_to_folder, "model_accuracy"))
+
+
+def save_training_params(
+    epochs,
+    steps_per_epoch,
+    num_train_steps,
+    num_warmup_steps,
+    init_lr,
+    optimizer_type,
+    path_to_save_at):
+    '''
+    Saves the given model hyper params to a json at the path given
+    '''
+
+    dict = {
+        "Epochs": epochs,
+        "Steps per epoch": steps_per_epoch,
+        "Number of training steps": num_train_steps,
+        "Number of warmup steps": num_warmup_steps,
+        "Initial Learning Rate": init_lr,
+        "Optimizer": optimizer_type
+    }
+
+    with open(os.path.join(path_to_save_at, "training_params.json"), "w") as j:
+        j.write(json.dumps(dict, indent=4))
 
 
 def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
