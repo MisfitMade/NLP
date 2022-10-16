@@ -11,7 +11,7 @@ import tensorflow_hub as hub
 from numpy.typing import NDArray
 from typing import Tuple, Callable, List
 from sklearn.metrics import ConfusionMatrixDisplay
-from googletrans import Translator
+from googletrans import Translator, constants
 
 
 # import tensorflow.compat.v1 as tf
@@ -63,7 +63,7 @@ def save_fig(
     to the globally defined plots folder path
     '''
     
-    path = os.path.join(PATH_TO_PLOTS, fig_id + "." + fig_extension)
+    path = os.path.join(PATH_TO_PLOTS, f"{fig_id}.{fig_extension}")
     if tight_layout:
         plt.tight_layout()
     plt.savefig(path, format=fig_extension, dpi=resolution)
@@ -73,7 +73,7 @@ def make_and_save_inst_per_class_plot(
     df: pd.DataFrame,
     plt: matplotlib.pyplot,
     title: str,
-    df_col: str = "class"):
+    df_col: str = CLASS_COL):
     '''
     Takes the training data dataframe and plots the number of instances per class,
     saves the figure too.
@@ -105,7 +105,7 @@ def train_valid_split(
     return training.filter(items=[TEXT_COL, CLASS_COL]), validation.filter(items=[TEXT_COL, CLASS_COL])
 
 
-def confusion_matrix(instances_validation, model, plt, fig_id) -> None:
+def confusion_matrix(plt, instances_validation, model, identifying_path) -> None:
 
     # confusion matrix
     X, y = [], []
@@ -123,13 +123,20 @@ def confusion_matrix(instances_validation, model, plt, fig_id) -> None:
 
     ConfusionMatrixDisplay.from_predictions(y, y_hat)
     plt.title(f"Confusion Matrix\nAccuracy: {acc}")
-    save_fig(plt, f"{fig_id}_confusion")
+
+
+    # ensure that the path to save it to exists
+    pathlib.Path(
+        os.path.join(
+            PATH_TO_PLOTS,
+            identifying_path)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(identifying_path, "confusion"))
 
     print("Accuracy:", (y == y_hat).sum() / len(y))
 
 
 
-def plot_loss(plt: matplotlib.pyplot, history, fig_id)-> None:
+def plot_loss(plt: matplotlib.pyplot, history, identifying_path)-> None:
 
     # plot loss
     plt.plot(history.history['loss'])
@@ -140,10 +147,16 @@ def plot_loss(plt: matplotlib.pyplot, history, fig_id)-> None:
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend(['Training', 'Validation'], loc='upper left')
-    save_fig(plt, f"{PATH_TO_PLOTS}/{fig_id}_model_loss")
+
+    # ensure that the path to save it to exists
+    pathlib.Path(
+        os.path.join(
+            PATH_TO_PLOTS,
+            identifying_path)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(identifying_path, "model_loss"))
 
 
-def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
+def plot_accuracy(plt: matplotlib.pyplot, history, identifying_path)-> None:
 
     # plot accuracy
     plt.plot(history.history['accuracy'])
@@ -154,21 +167,14 @@ def plot_accuracy(plt: matplotlib.pyplot, history, fig_id)-> None:
     plt.ylabel('Accuracy')
     plt.xlabel('Epoch')
     plt.legend(['Training', 'Validation'], loc='upper left')
-    save_fig(plt, f"{PATH_TO_PLOTS}/{fig_id}_model_accuracy")
 
+    # ensure that the path to save it to exists
+    pathlib.Path(
+        os.path.join(
+            PATH_TO_PLOTS,
+            identifying_path)).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(identifying_path, "model_accuracy"))
 
-def map_class_to_float(classification: str) -> float:
-
-    if classification == HOMER_SIMPSON:
-        return 0
-    elif classification == BART_SIMPSON:
-        return 1
-    elif classification == LISA_SIMPSON:
-        return 2
-    elif classification == MARGE_SIMPSON:
-        return 3
-    else:
-        return 4
 
 def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
     '''
@@ -182,7 +188,24 @@ def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
         str += f" {PAD_WORD}"
     
     return str
-    
+
+
+# Function to build model
+def build_classifier_model(preproc_path: str, encoder_path: str) -> tf.keras.Model:
+
+    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+    preprocessing_layer = hub.KerasLayer(preproc_path, name='preprocessing')
+    encoder_inputs = preprocessing_layer(text_input)
+    encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
+    outputs = encoder(encoder_inputs)
+    net = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    net = tf.keras.layers.Dense(128, activation="tanh")(net)
+    net = tf.keras.layers.Dropout(0.1)(net)
+    net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
+
+    return tf.keras.Model(text_input, net)
+
+
 def translate_df_to_and_back(
     dest_lang: str,
     training_df: pd.DataFrame,
@@ -207,12 +230,111 @@ def translate_df_to_and_back(
    
     return sample_of_translated
 
+
 def translate_str_to_and_back(translator, text_to_translate: str, dest_lang: str) -> str:
+
+    '''
+    Uses the given translator to translate the given string into the given langauge,
+    "dest_lang", then back to english, then returns it.
+    '''
 
     return translator.translate(
         translator.translate(text_to_translate, dest=dest_lang, src="en").text,
         dest="en",
         src=dest_lang).text
+
+
+def increase_training_data_via_language_traslation(
+    training_df: pd.DataFrame,
+    fraction_sample_size: float,
+    classes_to_make_more_instances_of: list,
+    path_to_root_of_file_ds_struct: str) -> None:
+    '''
+    Takes a dataframe in the form of the training data .tsv and translates a random sample
+    of size (fraction_sample_size * total instances of class) for each class into every
+    language provided by google translate, then translates it back and saves it as a .txt
+    in the file/folder data struct whose root directory is "path_to_root_of_file_ds_struct".
+    '''
+
+    for key in constants.LANGUAGES:
+        try:
+            # dont translate english to english then back to enlgish
+            if lang_i is not "en":
+                lang_i = constants.LANGUAGES[key]
+                print(lang_i) # print the language it is starting to show progression
+                translated_df = translate_df_to_and_back(
+                    key,
+                    training_df,
+                    fraction_sample_size,
+                    classes_to_make_more_instances_of)
+                make_df_into_ds_file_form(
+                    translated_df,
+                    path_to_root_of_file_ds_struct,
+                    classes_to_make_more_instances_of,
+                    f"{lang_i}_")
+        except Exception:
+            print("Error on language: ", lang_i)
+
+
+def make_df_into_ds_file_form(
+    training_df: pd.DataFrame,
+    path_to_file_struct_root: str,
+    classes: list,
+    unique_id: str = ""):
+
+    '''
+    Takes a dataframe representing a .tsv in the form of the training data .tsv,
+    a path to root folder for a file/folder data set structure to be made at,
+    a list of target classes to turn to folders and add the corresponding instances
+    into, and a unique_id to prefix file names (which are coded to just be the row ids
+    of the given dataframe, not the row index, but the row id) so that the same file names
+    can be used to save multiple instances, but with slightly different prefixes. For
+    instance, training instance 112, being a Bart class, the text being "Eat my shorts",
+    can be saved twice as path_to_file_struct_root/Bart/es112.txt and
+    path_to_file_struct_root/Bart/en112.txt, where the "es" one is "Eat my shorts"
+    translated to spanish, then back to english, and saved to as a .txt as what ever the
+    translation to and back becomes, and the "en" one is just the original english version,
+    "Eat my shorts" saved as a .txt.
+
+    The file/folder data set structure that is made is (and must be) similar to the form:
+    ./some_path/to_training_ds/
+                            ___Bart/
+                            _______bart_instance_id_r.txt
+                            _______bart_instance_id_q.txt
+                            _______ ...
+                            ___Homer/
+                            ________homer_instance_id_k.txt
+                            ________homer_instance_id_n.txt
+                            ________ ...
+                            ___Marge/
+                                    ......
+                            ___Lisa/
+                                    ......
+                            ___Other/
+                            ________other_instance_id_k.txt
+                            ________other_instance_id_n.txt
+                            ________ ...
+    
+    where the folders "Bart". "Homer", ..., "Other" are named after the class that each
+    folder represents and the instances inside each folder are instances of that class.
+ 
+    '''
+
+    # if unique_id has any / or \ in it, it will create new folders and mess up the
+    # dataset structure
+    assert "\\" not in unique_id and "/" not in unique_id
+    for c in classes:
+        class_c_path = f"{path_to_file_struct_root}/{c}"
+        pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
+        class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
+        for row in class_c_instances.iterrows():
+            series = row[1]
+            with open(f"{class_c_path}/{unique_id}{series[ID_COL]}.txt", "w") as file:
+                file.write(series[TEXT_COL])
+
+
+
+
 
 # Elmo object taken from 
 # https://github.com/strongio/keras-elmo/blob/master/Elmo%20Keras.ipynb
@@ -246,58 +368,29 @@ class ElmoEmbeddingLayer(keras.layers.Layer):
         return (input_shape[0], self.dimensions)
 
 
-# Function to build model
-def build_classifier_model(preproc_path: str, encoder_path: str):
-    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
-    preprocessing_layer = hub.KerasLayer(preproc_path, name='preprocessing')
-    encoder_inputs = preprocessing_layer(text_input)
-    encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
-    outputs = encoder(encoder_inputs)
-    net = outputs['pooled_output']
-    net = tf.keras.layers.Dense(128, activation="tanh")(net)
-    net = tf.keras.layers.Dropout(0.1)(net)
-    net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
-
-    return tf.keras.Model(text_input, net)
-
-
-def make_df_into_ds_file_form(
-    training_df: pd.DataFrame,
-    path_to_file_struct_root: str,
-    classes: list,
-    unique_id: str = ""):
-    '''
-    Takes a dataframe representing a .tsv in the form of the training data .tsv,
-    a path to root folder for a file/folder data set structure to be made at,
-    a list of target classes to turn to folders and add the corresponding instances
-    into, and a unique_id to prefix file names (which are coded to just be the row ids
-    of the given dataframe, not the row index, but the row id) so that the same file names
-    can be used to save multiple instances, but with slightly different prefixes. For
-    instance, training instance 112, being a Bart class, the text being "Eat my shorts",
-    can be saved as twice as path_to_file_struct_root/Bart/es112.txt and
-    path_to_file_struct_root/Bart/en112.txt, where the "es" one is "Eat my shorts"
-    translated to spanish, then back to english, and saved to the .txt as what ever the
-    translation to and back becomes, and the "en" one is just the original english version,
-    "Eat my shorts" saved to a .txt.
-    enlis
-    '''
-
-    # if unique_id has any / or \ in it, it will create new folders and mess up the
-    # dataset structure
-    assert "\\" not in unique_id and "/" not in unique_id
-    for c in classes:
-        class_c_path = f"{path_to_file_struct_root}/{c}"
-        pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
-        class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
-        for row in class_c_instances.iterrows():
-            series = row[1]
-            with open(f"{class_c_path}/{unique_id}{series[ID_COL]}.txt", "w") as file:
-                file.write(series[TEXT_COL])
-
-
-
 # *** SCRATCH ***
 '''
+def map_class_to_float(classification: str) -> float:
+
+    if classification == HOMER_SIMPSON:
+        return 0
+    elif classification == BART_SIMPSON:
+        return 1
+    elif classification == LISA_SIMPSON:
+        return 2
+    elif classification == MARGE_SIMPSON:
+        return 3
+    else:
+        return 4
+
+
+# create an instance of ELMo
+embeddings = language_model(X, signature="default", as_dict=True)["elmo"]
+init = tf.initialize_all_variables()
+sess = tf.Session()
+sess.run(init)
+
+# or a layer of ELMo
 hub.KerasLayer( # This layer is a word embedding layer
         language_model_path,
         trainable=False
@@ -307,48 +400,6 @@ hub.KerasLayer( # This layer is a word embedding layer
         #output_shape=[output_shape_size]
         ),
 
-# Now lets define our NN, using ELMo as the first layer, the embedding layer
-output_shape_size = 150
-language_model_path = ELMO_HANDLE
-activation_fnx = "tanh"
-
-model = keras.Sequential([
-    ElmoEmbeddingLayer()(keras.layers.Input(dtype='string', input_shape=(1,))),
-    keras.layers.Dense(128, activation=activation_fnx),
-    keras.layers.Dense(5, activation='softmax'),
-])
-
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(), # SGD, RMSprop, Adam, Adadelta, Adagrad, Adamax Nadam, Ftrl
-    loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-    metrics=["accuracy"])
-
-model.summary()
-
-# sharding settings for dev defined GPU work distribution
-# (AutoShardPolicy.DATA or AutoShardPolicy.OFF)
-options = tf.data.Options()
-options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-
-
-
-# create an instance of ELMo
-embeddings = language_model(X, signature="default", as_dict=True)["elmo"]
-init = tf.initialize_all_variables()
-sess = tf.Session()
-sess.run(init)
-
-
-CREATE A DATA SET OUT OF OUR TSV ?
-dataset = tf.keras.utils.get_file(
-    SIMPSONS_TRAINING_TSV,
-    PATH_TO_TRAINING_DATA,
-    cache_dir=PATH_TO_DATA,
-    cache_subdir='')
-dataset_dir = os.path.join(os.path.dirname(dataset), 'simpsons')
-train_dir = os.path.join(dataset_dir, 'train')
-
-
 BUILD EMBEDDER MANUALLY
 max_seq_len = training_df[TEXT_COL].str.len().max()
 
@@ -357,7 +408,8 @@ preprocessor = hub.KerasLayer(SMALL_BERT[0])
 encoder_inputs = preprocessor(training_df[TEXT_COL])
 encoder = hub.KerasLayer(SMALL_BERT[1], trainable=True)
 
-BUILD DATASETS MANUALLY
+
+BUILD X, y for training and validation MANUALLY
 embedded = encoder_outputs["default"]
 Y = tf.keras.utils.to_categorical(classes_encoding)
 eighty_percent = int(embedded.shape[0] * 0.8)

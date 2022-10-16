@@ -1,0 +1,1 @@
+It passed the first test: I didn't go blind.

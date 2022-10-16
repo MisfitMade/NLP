@@ -1,0 +1,1 @@
+Standard hotel boilerplate. It just says that someone died in this room in the last twenty-two hours.
