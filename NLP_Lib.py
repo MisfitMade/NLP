@@ -165,6 +165,7 @@ def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
 
 def save_training_params(
+    validation_split,
     epochs,
     steps_per_epoch,
     num_train_steps,
@@ -177,6 +178,7 @@ def save_training_params(
     '''
 
     dict = {
+        "Validation split": validation_split,
         "Epochs": epochs,
         "Steps per epoch": steps_per_epoch,
         "Number of training steps": num_train_steps,
