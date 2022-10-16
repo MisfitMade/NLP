@@ -178,13 +178,13 @@ def save_training_params(
     '''
 
     dict = {
-        "Validation split": validation_split,
-        "Epochs": epochs,
-        "Steps per epoch": steps_per_epoch,
-        "Number of training steps": num_train_steps,
-        "Number of warmup steps": num_warmup_steps,
-        "Initial Learning Rate": init_lr,
-        "Optimizer": optimizer_type
+        "Validation split": str(validation_split),
+        "Epochs": str(epochs),
+        "Steps per epoch": str(steps_per_epoch),
+        "Number of training steps": str(num_train_steps),
+        "Number of warmup steps": str(num_warmup_steps),
+        "Initial Learning Rate": str(init_lr),
+        "Optimizer": str(optimizer_type)
     }
 
     with open(os.path.join(path_to_save_at, "training_params.json"), "w") as j:
