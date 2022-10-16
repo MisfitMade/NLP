@@ -206,6 +206,24 @@ def build_classifier_model(preproc_path: str, encoder_path: str) -> tf.keras.Mod
     return tf.keras.Model(text_input, net)
 
 
+def delete_instances_from_file_struct(
+    sub_string_to_del_if: str,
+    path_to_root_of_file_struct: str):
+    '''
+    Deletes files in a dataset file/folder struct if the file name contains the given
+    "sub_string_to_del_if" in its name. Used at least to delete the accidental copies
+    of instances we made by converting the instances to english, then back to english.
+    '''
+
+    for (_, dirnames, _) in os.walk(path_to_root_of_file_struct):
+        for d in dirnames:
+            for (_, _, inst_filenames) in os.walk(os.path.join(path_to_root_of_file_struct, d)):
+                for f in inst_filenames:
+                    if sub_string_to_del_if in f:
+                        print(f"deleted {f}")
+                        os.remove(os.path.join(path_to_root_of_file_struct, d, f))
+
+
 def translate_df_to_and_back(
     dest_lang: str,
     training_df: pd.DataFrame,
@@ -259,7 +277,7 @@ def increase_training_data_via_language_traslation(
     for key in constants.LANGUAGES:
         try:
             # dont translate english to english then back to enlgish
-            if lang_i is not "en":
+            if key != "en":
                 lang_i = constants.LANGUAGES[key]
                 print(lang_i) # print the language it is starting to show progression
                 translated_df = translate_df_to_and_back(
