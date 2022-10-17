@@ -33,6 +33,13 @@ BART_SIMPSON = "Bart Simpson"
 LISA_SIMPSON = "Lisa Simpson"
 MARGE_SIMPSON = "Marge Simpson"
 OTHER = "Other"
+VALIDATION_SPLIT = "Validation split"
+EPOCHS = "Epochs"
+STEPS_PER_EPOCH = "Steps per epoch"
+NUMBER_OF_TRAINING_STEPS = "Number of training steps"
+NUMBER_OF_WARMUP_STEPS = "Number of warmup steps"
+INITIAL_LEARNING_RATE = "Initial Learning Rate"
+OPTIMIZER = "Optimizer"
 
 CLASSES = [HOMER_SIMPSON, BART_SIMPSON, LISA_SIMPSON, MARGE_SIMPSON, OTHER]
 
@@ -105,34 +112,46 @@ def train_valid_split(
 
 def confusion_matrix(plt, instances_validation, model, path_to_folder) -> None:
 
-    # confusion matrix
+    # extract the instances for each class to make a list of lists
     X, y = [], []
     for x, label in instances_validation:
         X.append(x)
         y.append(label)
 
+    # flatten them into just lists
     X = np.concatenate(X, axis=0)    
     y = np.concatenate(y, axis=0)
 
+
     predictions = model.predict(X)
-    y_hat = predictions.argmax(axis=-1)
+    
+    # see which predicted class is the same as the given class
+    y_hat = []
+    for p in predictions:
+        y_hat.append([int(item == p.max()) for item in p])
+    y_hat = np.array(y_hat)
+    
+    y = np.transpose(list(map(np.argmax, y)))
+    y_hat =  np.transpose(list(map(np.argmax, y_hat)))
+        
+    acc = np.array(y_hat == y).sum()/len(y)
 
-    acc = (y == y_hat).sum() / len(y)
-
+    plt.clf()
     ConfusionMatrixDisplay.from_predictions(y, y_hat)
     plt.title(f"Confusion Matrix\nAccuracy: {acc}")
 
-
     # ensure that the path to save it to exists
-    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(path_to_folder, "confusion"))
+    path = os.path.join(path_to_folder, PLOTS_DIR)
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path, "confusion"))
 
-    print("Accuracy:", (y == y_hat).sum() / len(y))
+    print("Accuracy:", acc)
 
 
 def plot_loss(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
     # plot loss
+    plt.clf()
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
     plt.ylim((0,4))
@@ -143,13 +162,15 @@ def plot_loss(plt: matplotlib.pyplot, history, path_to_folder)-> None:
     plt.legend(['Training', 'Validation'], loc='upper left')
 
     # ensure that the path to save it to exists
-    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(path_to_folder, "model_loss"))
+    path = os.path.join(path_to_folder, PLOTS_DIR)
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path, "model_loss"))
 
 
 def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
     # plot accuracy
+    plt.clf()
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
     plt.ylim((0,1))
@@ -160,8 +181,9 @@ def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
     plt.legend(['Training', 'Validation'], loc='upper left')
 
     # ensure that the path to save it to exists
-    pathlib.Path(os.path.join(path_to_folder, PLOTS_DIR)).mkdir(parents=True, exist_ok=True)
-    save_fig(plt, os.path.join(path_to_folder, "model_accuracy"))
+    path = os.path.join(path_to_folder, PLOTS_DIR)
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    save_fig(plt, os.path.join(path, "model_accuracy"))
 
 
 def save_training_params(
@@ -178,13 +200,13 @@ def save_training_params(
     '''
 
     dict = {
-        "Validation split": str(validation_split),
-        "Epochs": str(epochs),
-        "Steps per epoch": str(steps_per_epoch),
-        "Number of training steps": str(num_train_steps),
-        "Number of warmup steps": str(num_warmup_steps),
-        "Initial Learning Rate": str(init_lr),
-        "Optimizer": str(optimizer_type)
+        VALIDATION_SPLIT: str(validation_split),
+        EPOCHS: str(epochs),
+        STEPS_PER_EPOCH: str(steps_per_epoch),
+        NUMBER_OF_TRAINING_STEPS: str(num_train_steps),
+        NUMBER_OF_WARMUP_STEPS: str(num_warmup_steps),
+        INITIAL_LEARNING_RATE: str(init_lr),
+        OPTIMIZER: str(optimizer_type)
     }
 
     with open(os.path.join(path_to_save_at, "training_params.json"), "w") as j:
@@ -206,7 +228,10 @@ def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
 
 
 # Function to build model
-def build_classifier_model(preproc_path: str, encoder_path: str) -> tf.keras.Model:
+def build_classifier_model(
+    preproc_path: str,
+    encoder_path: str,
+    optimizer) -> tf.keras.Model:
 
     text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
     preprocessing_layer = hub.KerasLayer(preproc_path, name='preprocessing')
@@ -218,7 +243,14 @@ def build_classifier_model(preproc_path: str, encoder_path: str) -> tf.keras.Mod
     net = tf.keras.layers.Dropout(0.1)(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
 
-    return tf.keras.Model(text_input, net)
+    model = tf.keras.Model(text_input, net)
+
+    model.compile(
+        optimizer=optimizer,
+        loss=tf.keras.losses.CategoricalCrossentropy(),
+        metrics=tf.metrics.CategoricalAccuracy())
+
+    return model
 
 
 def delete_instances_from_file_struct(
