@@ -1,3 +1,6 @@
+from contextlib import redirect_stdout
+from genericpath import exists
+from multiprocessing import pool
 import os
 import matplotlib.pyplot
 import pandas as pd
@@ -56,8 +59,8 @@ SMALL_BERT = [
 PATH_TO_GENERIC_PLOTS = os.path.join(PROJECT_ROOT_DIR, PLOTS_DIR)
 PATH_TO_DATA = os.path.join(PROJECT_ROOT_DIR, "resources")
 PATH_TO_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
-PATH_TO_TESTING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
 PATH_TO_TRAINING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-training.tsv")
+PATH_TO_TESTING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-testing.tsv")
 PATH_TO_MODELS_DIRECTORY = os.path.join(PROJECT_ROOT_DIR, "models")
 
 def save_fig(
@@ -229,6 +232,15 @@ def map_str_to_padded_longest_str(str: str, longest_str_ln: int) -> str:
     
     return str
 
+def print_model_summary_to_file(model: tf.keras.Model, path_to_model_root: str) -> None:
+    '''
+    Prints the given model's summary to the given folder.
+    '''
+
+    with open(os.path.join(path_to_model_root, "Model_Summary.txt"), 'w') as f:
+        with redirect_stdout(f):
+            model.summary()
+
 
 # Function to build model
 def build_classifier_model(
@@ -241,9 +253,27 @@ def build_classifier_model(
     encoder_inputs = preprocessing_layer(text_input)
     encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
     outputs = encoder(encoder_inputs)
-    net = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
-    net = tf.keras.layers.Dense(128, activation="tanh")(net)
-    net = tf.keras.layers.Dropout(0.1)(net)
+    # embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    embedding = outputs['sequence_output'] # get the resulting BERT encoded/embedded instances
+    
+    # Conv1D for temporal data
+    net1 = tf.keras.layers.Conv1D(512, 2, activation="tanh", padding="same",)(embedding)
+    net1 = tf.keras.layers.Conv1D(256, 2, activation="relu", padding="same")(net1)
+    net1 = tf.keras.layers.Conv1D(128, 2, activation="tanh", padding="same")(net1)
+    pool1 = tf.keras.layers.MaxPool1D(128)(net1)
+
+    # net = tf.keras.layers.Conv1D(128, 3, activation="tanh", padding="same")(pool1)
+    #pool2 = tf.keras.layers.MaxPool1D(128)(net2)
+
+    #net3 = tf.keras.layers.Conv1D(128, 4, activation="tanh", padding="same")(pool2)
+    #pool3 = tf.keras.layers.MaxPool1D(128)(net3)
+
+    # net = tf.keras.layers.Flatten()(tf.keras.layers.concatenate([pool1, pool2, pool3]))
+    
+    # net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
+    net = tf.keras.layers.Dense(128, activation="tanh")(pool1)
+    net = tf.keras.layers.Dropout(0.4)(net)
+    net = tf.keras.layers.Dense(32, activation="tanh")(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
 
     model = tf.keras.Model(text_input, net)
