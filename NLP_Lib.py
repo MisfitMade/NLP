@@ -26,6 +26,8 @@ CLASS_COL = "class"
 SUBCLASS_COL = "subclass"
 TEXT_COL = "text"
 ID_COL = "id"
+SUBMISSION_ID_COL = "Id"
+SUBMISSION_CATEGORY_COL = "Category"
 EMBEDDING_SIZE = 50
 PAD_WORD = "--PAD--"
 HOMER_SIMPSON = "Homer Simpson"
@@ -54,8 +56,9 @@ SMALL_BERT = [
 PATH_TO_GENERIC_PLOTS = os.path.join(PROJECT_ROOT_DIR, PLOTS_DIR)
 PATH_TO_DATA = os.path.join(PROJECT_ROOT_DIR, "resources")
 PATH_TO_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
+PATH_TO_TESTING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
 PATH_TO_TRAINING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-training.tsv")
-CHECKPOINT_DIR = os.path.join(PROJECT_ROOT_DIR, "model_checkpoints")
+PATH_TO_MODELS_DIRECTORY = os.path.join(PROJECT_ROOT_DIR, "models")
 
 def save_fig(
     plt: matplotlib.pyplot,
@@ -341,6 +344,43 @@ def increase_training_data_via_language_traslation(
             print("Error on language: ", lang_i)
 
 
+def map_probs_to_class(probs: list[list[float]]) -> pd.Series:
+    '''
+    Given a probability vector, returns the class that it represents
+    with regards to the model/weights we have made. If the model's
+    prediction is [0.2, 0.6, 0.4, 0.02, 0.09], then that is the
+    probability of
+    [Bart Simpson, Homer Simpson, Lisa Simpson, Marge Simpson, Other].
+    From that array, 0.6 is the highest probability, so return Homer Simpson.
+    for that instance. Do that for all instances.
+    '''
+
+    y_hat = []
+    for p in probs:
+        y_hat.append(
+            map_idx_to_class(np.argmax([int(item == p.max()) for item in p])))
+    
+    return pd.Series(y_hat)
+
+
+def map_idx_to_class(idx: int) -> str:
+    '''
+    Given an idx, return the corresponding class. This is dependent on the way
+    our model has represented the classes in a softmax vector.
+    '''
+
+    if idx == 0:
+        return BART_SIMPSON
+    elif idx == 1:
+        return HOMER_SIMPSON
+    elif idx == 2:
+        return LISA_SIMPSON
+    elif idx == 3:
+        return MARGE_SIMPSON
+    else:
+        return OTHER
+
+
 def make_df_into_ds_file_form(
     training_df: pd.DataFrame,
     path_to_file_struct_root: str,
@@ -401,7 +441,7 @@ def make_df_into_ds_file_form(
 
 
 
-# Elmo object taken from 
+# Not used, but Elmo object taken from 
 # https://github.com/strongio/keras-elmo/blob/master/Elmo%20Keras.ipynb
 class ElmoEmbeddingLayer(keras.layers.Layer):
     def __init__(self, **kwargs):
