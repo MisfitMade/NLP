@@ -1,0 +1,54 @@
+Model: "model_2"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ text (InputLayer)              [(None,)]            0           []                               
+                                                                                                  
+ preprocessing (KerasLayer)     {'input_type_ids':   0           ['text[0][0]']                   
+                                (None, 128),                                                      
+                                 'input_word_ids':                                                
+                                (None, 128),                                                      
+                                 'input_mask': (Non                                               
+                                e, 128)}                                                          
+                                                                                                  
+ BERT_encoder (KerasLayer)      {'default': (None,   28763649    ['preprocessing[0][0]',          
+                                512),                             'preprocessing[0][1]',          
+                                 'sequence_output':               'preprocessing[0][2]']          
+                                 (None, 128, 512),                                                
+                                 'pooled_output': (                                               
+                                None, 512),                                                       
+                                 'encoder_outputs':                                               
+                                 [(None, 128, 512),                                               
+                                 (None, 128, 512),                                                
+                                 (None, 128, 512),                                                
+                                 (None, 128, 512)]}                                               
+                                                                                                  
+ conv1d_6 (Conv1D)              (None, 128, 512)     524288      ['BERT_encoder[0][6]']           
+                                                                                                  
+ conv1d_7 (Conv1D)              (None, 128, 256)     393216      ['conv1d_6[0][0]']               
+                                                                                                  
+ conv1d_8 (Conv1D)              (None, 128, 256)     262144      ['conv1d_7[0][0]']               
+                                                                                                  
+ lstm (LSTM)                    (None, 128, 256)     525312      ['conv1d_8[0][0]']               
+                                                                                                  
+ lstm_1 (LSTM)                  (None, 128, 128)     197120      ['lstm[0][0]']                   
+                                                                                                  
+ max_pooling1d_2 (MaxPooling1D)  (None, 1, 128)      0           ['lstm_1[0][0]']                 
+                                                                                                  
+ flatten_1 (Flatten)            (None, 128)          0           ['max_pooling1d_2[0][0]']        
+                                                                                                  
+ dense_4 (Dense)                (None, 128)          16512       ['flatten_1[0][0]']              
+                                                                                                  
+ dropout_2 (Dropout)            (None, 128)          0           ['dense_4[0][0]']                
+                                                                                                  
+ dense_5 (Dense)                (None, 32)           4128        ['dropout_2[0][0]']              
+                                                                                                  
+ dropout_3 (Dropout)            (None, 32)           0           ['dense_5[0][0]']                
+                                                                                                  
+ classifier (Dense)             (None, 5)            165         ['dropout_3[0][0]']              
+                                                                                                  
+==================================================================================================
+Total params: 30,686,534
+Trainable params: 30,686,533
+Non-trainable params: 1
+__________________________________________________________________________________________________

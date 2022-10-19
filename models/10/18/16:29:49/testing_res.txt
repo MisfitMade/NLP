@@ -1,0 +1,8 @@
+Stopped the training early because validation loss started going super high around epoch 15, I had it set for 65 epochs and
+no early exit coded with a callback for if the val loss gets too high. After this one, the model trainings have exit early
+callbacks. Since I stopped it early, there was no model "history" and so I could not plot loss and accuracy, but it was just
+like the first complete model run except the overfitting did not start showing until around epoch 9, instead of epoch 7 like
+the first complete model.
+
+Best validation loss was around save_at_epoch_9; maybe save_at_epoch_10;
+

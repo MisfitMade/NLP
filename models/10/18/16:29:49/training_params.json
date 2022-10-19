@@ -1,0 +1,9 @@
+{
+    "Validation split": "0.2",
+    "Epochs": "65",
+    "Steps per epoch": "2622",
+    "Number of training steps": "170430",
+    "Number of warmup steps": "17043",
+    "Initial Learning Rate": "3e-05",
+    "Optimizer": "adamw"
+}
