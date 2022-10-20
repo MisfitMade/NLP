@@ -254,12 +254,18 @@ def build_classifier_model(
 
     encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
     outputs = encoder(encoder_inputs)
-    embedding = outputs['sequence_output'] # get the resulting BERT encoded/embedded instances
-
-    # embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    '''
+    Below is the model at ./models/10/16/10:57:45
+    '''
+    embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
+    net = tf.keras.layers.Dropout(0.55)(net)
+    net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
+    
     '''
     Below is the model at ./models/10/18/20:10:14/
-    '''
+    
+    embedding = outputs['sequence_output'] # get the resulting BERT encoded/embedded instances
     # Conv1D for temporal data
     net = tf.keras.layers.Conv1D(512, 2, activation="tanh", use_bias=False, padding="same")(embedding)
     net = tf.keras.layers.Conv1D(256, 3, activation="tanh", use_bias=False, padding="same")(net)
@@ -277,11 +283,11 @@ def build_classifier_model(
     net = tf.keras.layers.Dense(32, activation="tanh")(net)
     net = tf.keras.layers.Dropout(0.55)(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
-    
+    '''
 
     '''
     Below is the model at ./models/10/18/16:29:49/
-    
+    embedding = outputs['sequence_output'] # get the resulting BERT encoded/embedded instances
     # Conv1D for temporal data
     net = tf.keras.layers.Conv1D(512, 2, activation="tanh", padding="same")(embedding)
     net = tf.keras.layers.Conv1D(256, 2, activation="tanh", padding="same")(net)
@@ -296,7 +302,7 @@ def build_classifier_model(
     net = tf.keras.layers.Dense(32, activation="tanh")(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
     '''
-    
+
     model = tf.keras.Model(text_input, net)
 
     model.compile(
@@ -307,14 +313,7 @@ def build_classifier_model(
     '''
     Layers scratch
     # net = tf.keras.layers.Conv1D(128, 3, activation="tanh", padding="same")(pool1)
-    #pool2 = tf.keras.layers.MaxPool1D(128)(net2)
-
-    #net3 = tf.keras.layers.Conv1D(128, 4, activation="tanh", padding="same")(pool2)
-    #pool3 = tf.keras.layers.MaxPool1D(128)(net3)
-
     # net = tf.keras.layers.Flatten()(tf.keras.layers.concatenate([pool1, pool2, pool3]))
-    
-    # net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
     # tf.keras.layers.Reshape(target_shape, **kwargs)
     '''
 

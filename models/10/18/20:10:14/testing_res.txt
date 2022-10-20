@@ -1,3 +1,5 @@
 Weights Used
     models/10/16/20:10:14/save_at_13.h5
         Score: 0.44310
+    models/10/16/20:10:14/save_at_5.h5
+        Score: 0.46786
