@@ -37,6 +37,13 @@ HOMER_SIMPSON = "Homer Simpson"
 BART_SIMPSON = "Bart Simpson"
 LISA_SIMPSON = "Lisa Simpson"
 MARGE_SIMPSON = "Marge Simpson"
+NED_FLANDERS = "Ned Flanders"
+C_MONTGOMERY_BURNS = "C. Montgomery Burns"
+CHIEF_WIGGUM = "Chief Wiggum"
+KRUSTY_THE_CLOWN = "Krusty the Clown"
+MILHOUSE_VAN_HOUTEN = "Milhouse Van Houten"
+GRAMPA_SIMPSON = "Grampa Simpson"
+WAYLON_SMITHERS = "Waylon Smithers"
 OTHER = "Other"
 VALIDATION_SPLIT = "Validation split"
 EPOCHS = "Epochs"
@@ -47,6 +54,10 @@ INITIAL_LEARNING_RATE = "Initial Learning Rate"
 OPTIMIZER = "Optimizer"
 
 CLASSES = [HOMER_SIMPSON, BART_SIMPSON, LISA_SIMPSON, MARGE_SIMPSON, OTHER]
+SUBLCASSES = [
+    C_MONTGOMERY_BURNS, NED_FLANDERS, CHIEF_WIGGUM, MILHOUSE_VAN_HOUTEN,
+    KRUSTY_THE_CLOWN, GRAMPA_SIMPSON, WAYLON_SMITHERS
+    ]
 
 ELMO_HANDLE = "https://tfhub.dev/google/elmo/3" # "https://tfhub.dev/google/elmo/2"
 # 1st element is the bert preprocessor, the 2nd is the bert encoder.
@@ -59,6 +70,7 @@ SMALL_BERT = [
 PATH_TO_GENERIC_PLOTS = os.path.join(PROJECT_ROOT_DIR, PLOTS_DIR)
 PATH_TO_DATA = os.path.join(PROJECT_ROOT_DIR, "resources")
 PATH_TO_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
+PATH_TO_SUBCLASS_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "subclass_training")
 PATH_TO_TRAINING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-training.tsv")
 PATH_TO_TESTING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-testing.tsv")
 PATH_TO_MODELS_DIRECTORY = os.path.join(PROJECT_ROOT_DIR, "models")
@@ -254,14 +266,24 @@ def build_classifier_model(
 
     encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
     outputs = encoder(encoder_inputs)
+
+    '''
+    Below is a model for predicting subclass
+    '''
+    embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    net = tf.keras.layers.Dense(256, activation="tanh")(embedding)
+    net = tf.keras.layers.Dropout(0.55)(net)
+    net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
+    net = tf.keras.layers.Dropout(0.35)(net)
+    net = tf.keras.layers.Dense(11, activation="softmax", name='classifier')(net)
+    
     '''
     Below is the model at ./models/10/16/10:57:45
-    '''
     embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
     net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
     net = tf.keras.layers.Dropout(0.55)(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
-    
+    '''
     '''
     Below is the model at ./models/10/18/20:10:14/
     
@@ -341,7 +363,7 @@ def delete_instances_from_file_struct(
 def translate_df_to_and_back(
     dest_lang: str,
     training_df: pd.DataFrame,
-    fraction_of_each_class_to_translate: float,
+    fraction_sample_size_based_on_class: Callable[[str], float], # is a function of the class string given
     classes: list) -> pd.DataFrame:
     '''
     Takes a dataframe in the form of the training data .tsv, a language to translate that
@@ -355,7 +377,9 @@ def translate_df_to_and_back(
     translator = Translator()
     sample_of_translated = pd.DataFrame(columns=training_df.columns)
     for c in classes:
-        class_c_instances = training_df[training_df[CLASS_COL] == c].sample(frac=fraction_of_each_class_to_translate)    
+        class_c_instances = training_df[training_df[CLASS_COL] == c].sample(
+            frac=fraction_sample_size_based_on_class(c),
+            replace=False)    
         # translate from english to dest_lang, then translate back, from dest_lang to english
         class_c_instances[TEXT_COL] = class_c_instances[TEXT_COL].map(lambda x: translate_str_to_and_back(translator, x, dest_lang))
         sample_of_translated = pd.concat([sample_of_translated, class_c_instances])
@@ -378,9 +402,10 @@ def translate_str_to_and_back(translator, text_to_translate: str, dest_lang: str
 
 def increase_training_data_via_language_traslation(
     training_df: pd.DataFrame,
-    fraction_sample_size: float,
+    fraction_sample_size_based_on_class: Callable[[str], float], # is a function of the class string given
     classes_to_make_more_instances_of: list,
-    path_to_root_of_file_ds_struct: str) -> None:
+    path_to_root_of_file_ds_struct: str,
+    class_column) -> None:
     '''
     Takes a dataframe in the form of the training data .tsv and translates a random sample
     of size (fraction_sample_size * total instances of class) for each class into every
@@ -397,16 +422,31 @@ def increase_training_data_via_language_traslation(
                 translated_df = translate_df_to_and_back(
                     key,
                     training_df,
-                    fraction_sample_size,
+                    fraction_sample_size_based_on_class,
                     classes_to_make_more_instances_of)
                 make_df_into_ds_file_form(
                     translated_df,
                     path_to_root_of_file_ds_struct,
                     classes_to_make_more_instances_of,
+                    class_column,
                     f"{lang_i}_")
         except Exception:
             print("Error on language: ", lang_i)
 
+
+def get_translation_frac_size(cls: str) -> float:
+    '''
+    Used to determine how much of a sample size to take from each class when doing
+    translating to other languages and back. Using different sample sizes so that
+    the number of instances for each class can become more even.
+    '''
+
+    if cls == HOMER_SIMPSON:
+        return 0.0240
+    elif cls in CLASSES:
+        return 0.0525
+    else:
+        return 0.1550
 
 def map_probs_to_class(probs: list[list[float]]) -> pd.Series:
     '''
@@ -445,10 +485,43 @@ def map_idx_to_class(idx: int) -> str:
         return OTHER
 
 
+def map_idx_to_class(idx: int) -> str:
+    '''
+    Given an idx, return the corresponding sub class. This is dependent on the way
+    our model has represented the classes in a softmax vector.
+    '''
+
+    if idx == 0:
+        return BART_SIMPSON
+    elif idx == 1:
+        return C_MONTGOMERY_BURNS
+    elif idx == 2:
+        return CHIEF_WIGGUM
+    elif idx == 3:
+        return GRAMPA_SIMPSON
+    elif idx == 4:
+        return HOMER_SIMPSON
+    elif idx == 5:
+        return KRUSTY_THE_CLOWN
+    elif idx == 6:
+        return LISA_SIMPSON
+    elif idx == 7:
+        return MARGE_SIMPSON
+    elif idx == 8:
+        return MILHOUSE_VAN_HOUTEN
+    elif idx == 9:
+        return NED_FLANDERS
+    elif idx == 10:
+        return WAYLON_SMITHERS
+    else:
+        raise Exception("Invalid class index!")
+
+
 def make_df_into_ds_file_form(
     training_df: pd.DataFrame,
     path_to_file_struct_root: str,
     classes: list,
+    class_col_to_use: str,
     unique_id: str = ""):
 
     '''
@@ -495,7 +568,7 @@ def make_df_into_ds_file_form(
     for c in classes:
         class_c_path = f"{path_to_file_struct_root}/{c}"
         pathlib.Path(class_c_path).mkdir(parents=True, exist_ok=True)
-        class_c_instances = training_df[training_df[CLASS_COL] == c].filter(items=[ID_COL, TEXT_COL])
+        class_c_instances = training_df[training_df[class_col_to_use] == c].filter(items=[ID_COL, TEXT_COL])
         for row in class_c_instances.iterrows():
             series = row[1]
             with open(f"{class_c_path}/{unique_id}{series[ID_COL]}.txt", "w") as file:
