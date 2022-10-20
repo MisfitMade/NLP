@@ -251,11 +251,14 @@ def build_classifier_model(
     text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
     preprocessing_layer = hub.KerasLayer(preproc_path, name='preprocessing')
     encoder_inputs = preprocessing_layer(text_input)
+
     encoder = hub.KerasLayer(encoder_path, trainable=True, name='BERT_encoder')
     outputs = encoder(encoder_inputs)
-    # embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
     embedding = outputs['sequence_output'] # get the resulting BERT encoded/embedded instances
 
+    # embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    '''
+    Below is the model at ./models/10/18/20:10:14/
     '''
     # Conv1D for temporal data
     net = tf.keras.layers.Conv1D(512, 2, activation="tanh", use_bias=False, padding="same")(embedding)
@@ -274,11 +277,11 @@ def build_classifier_model(
     net = tf.keras.layers.Dense(32, activation="tanh")(net)
     net = tf.keras.layers.Dropout(0.55)(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
-    '''
+    
 
     '''
     Below is the model at ./models/10/18/16:29:49/
-    '''
+    
     # Conv1D for temporal data
     net = tf.keras.layers.Conv1D(512, 2, activation="tanh", padding="same")(embedding)
     net = tf.keras.layers.Conv1D(256, 2, activation="tanh", padding="same")(net)
@@ -292,7 +295,8 @@ def build_classifier_model(
     net = tf.keras.layers.Dropout(0.4)(net)
     net = tf.keras.layers.Dense(32, activation="tanh")(net)
     net = tf.keras.layers.Dense(5, activation="softmax", name='classifier')(net)
-
+    '''
+    
     model = tf.keras.Model(text_input, net)
 
     model.compile(

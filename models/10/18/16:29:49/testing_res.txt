@@ -6,3 +6,6 @@ the first complete model.
 
 Best validation loss was around save_at_epoch_9; maybe save_at_epoch_10;
 
+Weights Used
+    models/10/16/16:29:49/save_at_9.h5
+        Score: 0.44386
