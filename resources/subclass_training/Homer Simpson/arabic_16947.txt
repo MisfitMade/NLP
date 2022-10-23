@@ -1,0 +1,1 @@
+you are right. We'd better redo this check for shredding.

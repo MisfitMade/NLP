@@ -1,0 +1,1 @@
+You are right. Better just return this check for shredding.

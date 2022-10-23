@@ -1,0 +1,1 @@
+Now demonstrate it in practice. First load the ordnance and then select the target.

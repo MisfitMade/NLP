@@ -1,0 +1,1 @@
+finally! I knew we could solve that maze using Tremaux's algorithm.

@@ -364,7 +364,8 @@ def translate_df_to_and_back(
     dest_lang: str,
     training_df: pd.DataFrame,
     fraction_sample_size_based_on_class: Callable[[str], float], # is a function of the class string given
-    classes: list) -> pd.DataFrame:
+    classes: list,
+    class_col: str) -> pd.DataFrame:
     '''
     Takes a dataframe in the form of the training data .tsv, a language to translate that
     dataframe's text column to, does the translation to that language, then translates it back
@@ -377,7 +378,7 @@ def translate_df_to_and_back(
     translator = Translator()
     sample_of_translated = pd.DataFrame(columns=training_df.columns)
     for c in classes:
-        class_c_instances = training_df[training_df[CLASS_COL] == c].sample(
+        class_c_instances = training_df[training_df[class_col] == c].sample(
             frac=fraction_sample_size_based_on_class(c),
             replace=False)    
         # translate from english to dest_lang, then translate back, from dest_lang to english
@@ -423,7 +424,8 @@ def increase_training_data_via_language_traslation(
                     key,
                     training_df,
                     fraction_sample_size_based_on_class,
-                    classes_to_make_more_instances_of)
+                    classes_to_make_more_instances_of,
+                    class_column)
                 make_df_into_ds_file_form(
                     translated_df,
                     path_to_root_of_file_ds_struct,

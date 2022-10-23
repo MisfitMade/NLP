@@ -1,0 +1,1 @@
+We shouldn't wait for other children. before we open the gift or

@@ -1,0 +1,1 @@
+Yes, exactly. That's the type of pointer I need.

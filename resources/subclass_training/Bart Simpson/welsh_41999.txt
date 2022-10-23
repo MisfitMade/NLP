@@ -1,0 +1,1 @@
+The book prints at midnight. So if we exchange in the original version, they will print the wrong book - our book.

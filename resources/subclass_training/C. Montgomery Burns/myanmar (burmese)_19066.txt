@@ -1,0 +1,1 @@
+Each of these buttons represents an employee. When he clicks, he dies.

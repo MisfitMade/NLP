@@ -1,0 +1,1 @@
+Familiarize yourself with grammatical bot lingo. I built it all myself. If you misuse the language, he will correct you.

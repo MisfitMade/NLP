@@ -1,0 +1,1 @@
+This signal is always an "accept" signal.

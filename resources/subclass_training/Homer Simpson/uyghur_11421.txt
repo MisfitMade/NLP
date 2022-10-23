@@ -1,0 +1,1 @@
+ok "Open the drawer labeled..." OK.

@@ -1,0 +1,1 @@
+Standard hotel model. It just says that someone has died in this room in the last seventy-two hours.

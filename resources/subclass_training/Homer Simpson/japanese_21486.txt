@@ -1,0 +1,1 @@
+It beeps every 3 seconds unless something is wrong.

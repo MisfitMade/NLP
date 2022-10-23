@@ -1,0 +1,1 @@
+The golem will perform any task written on a scroll and placed in its mouth.

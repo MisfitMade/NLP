@@ -1,0 +1,1 @@
+Golems will perform any task written on a scroll and placed in their mouths.

@@ -1,0 +1,1 @@
+Now, for a practical demonstration. First we load the weapon...then select the target.

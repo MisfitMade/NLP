@@ -1,0 +1,1 @@
+The book is printed at midnight. So if we change the original version, they'll print the wrong book -- our book.
