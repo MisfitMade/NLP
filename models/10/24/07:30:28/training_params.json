@@ -1,6 +1,7 @@
 {
     "Validation split": "0.2",
     "Epochs": "65",
+    "Batch size": "128",
     "Steps per epoch": "2431",
     "Number of training steps": "158015",
     "Number of warmup steps": "55305",

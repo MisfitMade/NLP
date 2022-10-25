@@ -45,6 +45,7 @@ MILHOUSE_VAN_HOUTEN = "Milhouse Van Houten"
 GRAMPA_SIMPSON = "Grampa Simpson"
 WAYLON_SMITHERS = "Waylon Smithers"
 OTHER = "Other"
+BATCH_SIZE = "Batch Size"
 VALIDATION_SPLIT = "Validation split"
 EPOCHS = "Epochs"
 STEPS_PER_EPOCH = "Steps per epoch"
@@ -71,6 +72,7 @@ PATH_TO_GENERIC_PLOTS = os.path.join(PROJECT_ROOT_DIR, PLOTS_DIR)
 PATH_TO_DATA = os.path.join(PROJECT_ROOT_DIR, "resources")
 PATH_TO_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "training")
 PATH_TO_SUBCLASS_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "subclass_training")
+PATH_TO_PLAIN_SUBCLASS_TRAINING_DATASET_STRUCT = os.path.join(PATH_TO_DATA, "plain_subclass_training")
 PATH_TO_TRAINING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-training.tsv")
 PATH_TO_TESTING_TSV = os.path.join(PATH_TO_DATA, "simpsons_dataset-testing.tsv")
 PATH_TO_MODELS_DIRECTORY = os.path.join(PROJECT_ROOT_DIR, "models")
@@ -205,6 +207,7 @@ def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
 
 def save_training_params(
+    batch_size,
     validation_split,
     epochs,
     steps_per_epoch,
@@ -218,6 +221,7 @@ def save_training_params(
     '''
 
     dict = {
+        BATCH_SIZE: str(batch_size),
         VALIDATION_SPLIT: str(validation_split),
         EPOCHS: str(epochs),
         STEPS_PER_EPOCH: str(steps_per_epoch),
@@ -268,15 +272,27 @@ def build_classifier_model(
     outputs = encoder(encoder_inputs)
 
     '''
-    Below is a model for predicting subclass
+    Below is the model for 
     '''
+    embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
+    net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
+    net = tf.keras.layers.Dropout(0.45)(net)
+    net = tf.keras.layers.Dense(64, activation="tanh")(net)
+    net = tf.keras.layers.Dropout(0.25)(net)
+    net = tf.keras.layers.Dense(11, activation="softmax", name='classifier')(net)
+    
+
+    '''
+    Below is the model for 10/24/07:30:28
+
     embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
     net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
     net = tf.keras.layers.Dropout(0.55)(net)
     net = tf.keras.layers.Dense(64, activation="tanh")(net)
     net = tf.keras.layers.Dropout(0.35)(net)
     net = tf.keras.layers.Dense(11, activation="softmax", name='classifier')(net)
-    
+    '''
+
     '''
     Below is the model at ./models/10/16/10:57:45
     embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
@@ -450,7 +466,7 @@ def get_translation_frac_size(cls: str) -> float:
     else:
         return 0.1550
 
-def map_probs_to_class(probs: list[list[float]]) -> pd.Series:
+def map_probs_to_class(probs: list[list[float]], map_idx_to_label_fnx) -> pd.Series:
     '''
     Given a probability vector, returns the class that it represents
     with regards to the model/weights we have made. If the model's
@@ -464,7 +480,7 @@ def map_probs_to_class(probs: list[list[float]]) -> pd.Series:
     y_hat = []
     for p in probs:
         y_hat.append(
-            map_idx_to_class(np.argmax([int(item == p.max()) for item in p])))
+            map_idx_to_label_fnx(np.argmax([int(item == p.max()) for item in p])))
     
     return pd.Series(y_hat)
 
@@ -487,7 +503,7 @@ def map_idx_to_class(idx: int) -> str:
         return OTHER
 
 
-def map_idx_to_class(idx: int) -> str:
+def map_idx_to_subclass(idx: int) -> str:
     '''
     Given an idx, return the corresponding sub class. This is dependent on the way
     our model has represented the classes in a softmax vector.
