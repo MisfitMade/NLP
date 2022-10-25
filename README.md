@@ -15,6 +15,7 @@ mapped to the GPU because the library `libcudnn8` is not installed, then you can
 ## Files
 * `NLP_Lib.py` -- This is a python library of functions we defined to help with cleaning, processing data, etc.
 * `NLP_Training.ipynb` -- This is a notebook for processing data, conducting NLP experiments, producing plots, analyzing the data, etc.
+* `NLP_Classification.ipynb` -- This is a notebook for loading in saved model specs and making prediction files.
 
 ## General setup before running any code
 
