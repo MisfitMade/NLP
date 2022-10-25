@@ -189,8 +189,8 @@ def plot_accuracy(plt: matplotlib.pyplot, history, path_to_folder)-> None:
 
     # plot accuracy
     plt.clf()
-    plt.plot(history.history['accuracy'])
-    plt.plot(history.history['val_accuracy'])
+    plt.plot(history.history['categorical_accuracy'])
+    plt.plot(history.history['val_categorical_accuracy'])
     plt.ylim((0,1))
     plt.yticks(np.arange(0, 1.1, step=0.1))
     plt.title('Model Accuracy')
@@ -271,9 +271,9 @@ def build_classifier_model(
     Below is a model for predicting subclass
     '''
     embedding = outputs['pooled_output'] # get the resulting BERT encoded/embedded instances
-    net = tf.keras.layers.Dense(256, activation="tanh")(embedding)
-    net = tf.keras.layers.Dropout(0.55)(net)
     net = tf.keras.layers.Dense(128, activation="tanh")(embedding)
+    net = tf.keras.layers.Dropout(0.55)(net)
+    net = tf.keras.layers.Dense(64, activation="tanh")(net)
     net = tf.keras.layers.Dropout(0.35)(net)
     net = tf.keras.layers.Dense(11, activation="softmax", name='classifier')(net)
     

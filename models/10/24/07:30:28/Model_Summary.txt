@@ -1,0 +1,40 @@
+Model: "model"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ text (InputLayer)              [(None,)]            0           []                               
+                                                                                                  
+ preprocessing (KerasLayer)     {'input_mask': (Non  0           ['text[0][0]']                   
+                                e, 128),                                                          
+                                 'input_word_ids':                                                
+                                (None, 128),                                                      
+                                 'input_type_ids':                                                
+                                (None, 128)}                                                      
+                                                                                                  
+ BERT_encoder (KerasLayer)      {'encoder_outputs':  28763649    ['preprocessing[0][0]',          
+                                 [(None, 128, 512),               'preprocessing[0][1]',          
+                                 (None, 128, 512),                'preprocessing[0][2]']          
+                                 (None, 128, 512),                                                
+                                 (None, 128, 512)],                                               
+                                 'sequence_output':                                               
+                                 (None, 128, 512),                                                
+                                 'default': (None,                                                
+                                512),                                                             
+                                 'pooled_output': (                                               
+                                None, 512)}                                                       
+                                                                                                  
+ dense (Dense)                  (None, 128)          65664       ['BERT_encoder[0][5]']           
+                                                                                                  
+ dropout (Dropout)              (None, 128)          0           ['dense[0][0]']                  
+                                                                                                  
+ dense_1 (Dense)                (None, 64)           8256        ['dropout[0][0]']                
+                                                                                                  
+ dropout_1 (Dropout)            (None, 64)           0           ['dense_1[0][0]']                
+                                                                                                  
+ classifier (Dense)             (None, 11)           715         ['dropout_1[0][0]']              
+                                                                                                  
+==================================================================================================
+Total params: 28,838,284
+Trainable params: 28,838,283
+Non-trainable params: 1
+__________________________________________________________________________________________________
