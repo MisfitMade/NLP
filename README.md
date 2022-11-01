@@ -40,3 +40,4 @@ mapped to the GPU because the library `libcudnn8` is not installed, then you can
 - The file `NLP_Lib.py`
     - has functions to use during the training and classification workflow, with comments for use.
     - has many globally defined variables to make switching between training/classifying with different setups easier.
+- Other `.ipynb` files in the repo were used for experimenting with different libraries and word embedding objects. As far as "Using the NLP code" (training, classifying), they are not involved.  
